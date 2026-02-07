@@ -1,6 +1,17 @@
 import { randomUUID } from "crypto";
 import type { Product, InsertProduct, Order, InsertOrder, Customer, Analytics, OrderStatus } from "@shared/schema";
 
+const allowedStatusTransitions: Record<OrderStatus, OrderStatus[]> = {
+  pending: ["confirmed", "cancelled"],
+  confirmed: ["preparing", "cancelled"],
+  preparing: ["ready", "cancelled"],
+  ready: ["delivered", "cancelled"],
+  delivered: [],
+  cancelled: [],
+};
+
+const cancellableStatuses: OrderStatus[] = ["pending", "confirmed", "preparing", "ready"];
+
 export interface IStorage {
   getProducts(): Promise<Product[]>;
   getProduct(id: string): Promise<Product | undefined>;
@@ -65,6 +76,7 @@ export class MemStorage implements IStorage {
       customerAddress: string;
       items: Array<{ productId: string; productName: string; quantity: number; unitPrice: number }>;
       status: OrderStatus;
+      discountAmount?: number;
       daysAgo: number;
     }> = [
       {
@@ -76,15 +88,14 @@ export class MemStorage implements IStorage {
           { productId: productArray[7].id, productName: productArray[7].name, quantity: 1, unitPrice: productArray[7].price },
         ],
         status: "delivered",
+        discountAmount: 15,
         daysAgo: 6,
       },
       {
         customerName: "Lucas Almeida",
         customerPhone: "(21) 97777-2222",
         customerAddress: "Av. Atlântica, 580 - Rio de Janeiro/RJ",
-        items: [
-          { productId: productArray[2].id, productName: productArray[2].name, quantity: 2, unitPrice: productArray[2].price },
-        ],
+        items: [{ productId: productArray[2].id, productName: productArray[2].name, quantity: 2, unitPrice: productArray[2].price }],
         status: "confirmed",
         daysAgo: 2,
       },
@@ -97,6 +108,7 @@ export class MemStorage implements IStorage {
           { productId: productArray[8].id, productName: productArray[8].name, quantity: 1, unitPrice: productArray[8].price },
         ],
         status: "ready",
+        discountAmount: 10,
         daysAgo: 1,
       },
       {
@@ -117,13 +129,17 @@ export class MemStorage implements IStorage {
       const orderDate = new Date();
       orderDate.setDate(orderDate.getDate() - orderData.daysAgo);
 
-      const totalAmount = orderData.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+      const subtotalAmount = orderData.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+      const discountAmount = Math.min(orderData.discountAmount || 0, subtotalAmount);
+      const totalAmount = Math.max(0.01, subtotalAmount - discountAmount);
 
       const order: Order = {
         id,
         customerName: orderData.customerName,
         customerPhone: orderData.customerPhone,
         customerAddress: orderData.customerAddress,
+        subtotalAmount,
+        discountAmount,
         totalAmount,
         status: orderData.status,
         orderDate: orderDate.toISOString(),
@@ -202,13 +218,17 @@ export class MemStorage implements IStorage {
     }
 
     const id = randomUUID();
-    const totalAmount = insertOrder.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+    const subtotalAmount = insertOrder.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+    const discountAmount = Math.min(insertOrder.discountAmount || 0, subtotalAmount);
+    const totalAmount = Math.max(0.01, subtotalAmount - discountAmount);
 
     const order: Order = {
       id,
       customerName: insertOrder.customerName,
       customerPhone: insertOrder.customerPhone,
       customerAddress: insertOrder.customerAddress,
+      subtotalAmount,
+      discountAmount,
       totalAmount,
       status: "pending",
       orderDate: new Date().toISOString(),
@@ -230,6 +250,21 @@ export class MemStorage implements IStorage {
   async updateOrderStatus(id: string, status: OrderStatus): Promise<Order | undefined> {
     const order = this.orders.get(id);
     if (!order) return undefined;
+
+    if (order.status === status) {
+      return order;
+    }
+
+    const allowedNext = allowedStatusTransitions[order.status];
+    if (!allowedNext.includes(status)) {
+      throw new Error(`Transição inválida: ${order.status} -> ${status}`);
+    }
+
+    if (status === "cancelled" && cancellableStatuses.includes(order.status)) {
+      for (const item of order.items) {
+        await this.updateProductStock(item.productId, item.quantity);
+      }
+    }
 
     order.status = status;
     this.orders.set(id, order);
@@ -270,6 +305,8 @@ export class MemStorage implements IStorage {
     const orders = Array.from(this.orders.values());
 
     const totalRevenue = orders.reduce((sum, order) => sum + order.totalAmount, 0);
+    const grossRevenue = orders.reduce((sum, order) => sum + order.subtotalAmount, 0);
+    const totalDiscount = orders.reduce((sum, order) => sum + order.discountAmount, 0);
     const totalOrders = orders.length;
     const totalProducts = products.length;
     const averageTicket = totalOrders > 0 ? totalRevenue / totalOrders : 0;
@@ -279,9 +316,20 @@ export class MemStorage implements IStorage {
     const cancellationRate = totalOrders > 0 ? (cancelledOrders / totalOrders) * 100 : 0;
 
     const customerOrderCount = new Map<string, number>();
+    const customerSpentMap = new Map<string, number>();
+    const customerLastOrderDate = new Map<string, Date>();
+
     orders.forEach((order) => {
-      customerOrderCount.set(order.customerPhone, (customerOrderCount.get(order.customerPhone) || 0) + 1);
+      const phone = order.customerPhone;
+      customerOrderCount.set(phone, (customerOrderCount.get(phone) || 0) + 1);
+      customerSpentMap.set(phone, (customerSpentMap.get(phone) || 0) + order.totalAmount);
+      const existingDate = customerLastOrderDate.get(phone);
+      const orderDate = new Date(order.orderDate);
+      if (!existingDate || orderDate > existingDate) {
+        customerLastOrderDate.set(phone, orderDate);
+      }
     });
+
     const totalCustomers = customerOrderCount.size;
     const repeatCustomers = Array.from(customerOrderCount.values()).filter((count) => count > 1).length;
     const repeatRate = totalCustomers > 0 ? (repeatCustomers / totalCustomers) * 100 : 0;
@@ -295,6 +343,33 @@ export class MemStorage implements IStorage {
         productName: product.name,
         stock: product.stock,
       }));
+
+    const productSalesUnits = new Map<string, number>();
+    orders.forEach((order) => {
+      order.items.forEach((item) => {
+        productSalesUnits.set(item.productId, (productSalesUnits.get(item.productId) || 0) + item.quantity);
+      });
+    });
+
+    const reorderSuggestions = products
+      .map((product) => {
+        const soldUnits = productSalesUnits.get(product.id) || 0;
+        const avgDailySales = soldUnits / 30;
+        const leadTimeDays = 7;
+        const safetyStock = Math.max(2, Math.ceil(avgDailySales * 3));
+        const reorderPoint = Math.ceil(avgDailySales * leadTimeDays + safetyStock);
+        const suggestedOrderQty = Math.max(0, reorderPoint * 2 - product.stock);
+        return {
+          productId: product.id,
+          productName: product.name,
+          currentStock: product.stock,
+          reorderPoint,
+          suggestedOrderQty,
+        };
+      })
+      .filter((item) => item.currentStock <= item.reorderPoint)
+      .sort((a, b) => b.suggestedOrderQty - a.suggestedOrderQty)
+      .slice(0, 8);
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -372,6 +447,21 @@ export class MemStorage implements IStorage {
       .sort((a, b) => b.totalSold - a.totalSold)
       .slice(0, 10);
 
+    const totalProductRevenue = topProducts.reduce((sum, product) => sum + product.revenue, 0);
+    let accumulatedRevenue = 0;
+    const abcCurve = topProducts.map((product) => {
+      accumulatedRevenue += product.revenue;
+      const accumulatedShare = totalProductRevenue > 0 ? (accumulatedRevenue / totalProductRevenue) * 100 : 0;
+      const classType: "A" | "B" | "C" = accumulatedShare <= 80 ? "A" : accumulatedShare <= 95 ? "B" : "C";
+      return {
+        productId: product.productId,
+        productName: product.productName,
+        revenue: product.revenue,
+        accumulatedShare,
+        classType,
+      };
+    });
+
     const categoryRevenue = new Map<string, { count: number; revenue: number }>();
     orders.forEach((order) => {
       order.items.forEach((item) => {
@@ -398,13 +488,7 @@ export class MemStorage implements IStorage {
       }))
       .sort((a, b) => b.revenue - a.revenue);
 
-    const statusMap = new Map<
-      OrderStatus,
-      {
-        orders: number;
-        revenue: number;
-      }
-    >();
+    const statusMap = new Map<OrderStatus, { orders: number; revenue: number }>();
 
     orders.forEach((order) => {
       const current = statusMap.get(order.status) || { orders: 0, revenue: 0 };
@@ -418,8 +502,49 @@ export class MemStorage implements IStorage {
       return { status: status as OrderStatus, orders: data.orders, revenue: data.revenue };
     });
 
+    const now = new Date();
+    const rfm = new Map<
+      string,
+      {
+        segment: string;
+        revenue: number;
+      }
+    >();
+
+    customerOrderCount.forEach((frequency, phone) => {
+      const recencyDays = Math.ceil((now.getTime() - (customerLastOrderDate.get(phone)?.getTime() || now.getTime())) / (1000 * 60 * 60 * 24));
+      const monetary = customerSpentMap.get(phone) || 0;
+
+      let segment = "Base";
+      if (frequency >= 3 && monetary >= 500 && recencyDays <= 30) {
+        segment = "VIP";
+      } else if (frequency >= 2 && recencyDays <= 60) {
+        segment = "Recorrente";
+      } else if (recencyDays > 90) {
+        segment = "Em risco";
+      } else if (frequency === 1 && recencyDays <= 30) {
+        segment = "Novo";
+      }
+
+      rfm.set(phone, { segment, revenue: monetary });
+    });
+
+    const segmentMap = new Map<string, { customers: number; revenue: number }>();
+    Array.from(rfm.values()).forEach((item) => {
+      const current = segmentMap.get(item.segment) || { customers: 0, revenue: 0 };
+      current.customers += 1;
+      current.revenue += item.revenue;
+      segmentMap.set(item.segment, current);
+    });
+
+    const rfmSegments = Array.from(segmentMap.entries())
+      .map(([segment, data]) => ({ segment, ...data }))
+      .sort((a, b) => b.revenue - a.revenue);
+
     return {
       totalRevenue,
+      grossRevenue,
+      totalDiscount,
       totalOrders,
       totalProducts,
       todayOrders,
@@ -431,14 +556,16 @@ export class MemStorage implements IStorage {
       cancellationRate,
       pendingOrders,
       lowStockProducts,
+      reorderSuggestions,
       revenueByStatus,
       monthlyRevenueTrend,
+      abcCurve,
+      rfmSegments,
       salesTrend,
       topProducts,
       categoryDistribution,
     };
   }
-
 }
 
 export const storage = new MemStorage();

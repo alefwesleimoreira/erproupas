@@ -129,6 +129,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: "Status inválido", details: error.errors });
       }
+      if (error instanceof Error) {
+        return res.status(400).json({ error: error.message });
+      }
       res.status(500).json({ error: "Falha ao atualizar status do pedido" });
     }
   });

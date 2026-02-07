@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { TrendingUp, Package, DollarSign, Users, AlertTriangle, Repeat } from "lucide-react";
+import { TrendingUp, Package, DollarSign, Users, AlertTriangle, Repeat, Scissors } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -45,14 +45,16 @@ export default function AnalyticsPage() {
         <p className="text-muted-foreground">Indicadores fundamentais para decisão comercial e operacional</p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-6">
-        {isLoading ? [...Array(6)].map((_, i) => <Card key={i}><CardHeader><Skeleton className="h-4 w-24" /></CardHeader></Card>) : <>
-          <Card><CardHeader className="flex flex-row justify-between"><CardTitle className="text-sm">Faturamento</CardTitle><DollarSign className="h-4 w-4" /></CardHeader><CardContent><p className="text-2xl font-bold">{formatCurrency(analytics?.totalRevenue || 0)}</p></CardContent></Card>
-          <Card><CardHeader className="flex flex-row justify-between"><CardTitle className="text-sm">Ticket Médio</CardTitle><TrendingUp className="h-4 w-4" /></CardHeader><CardContent><p className="text-2xl font-bold">{formatCurrency(analytics?.averageTicket || 0)}</p></CardContent></Card>
-          <Card><CardHeader className="flex flex-row justify-between"><CardTitle className="text-sm">Clientes</CardTitle><Users className="h-4 w-4" /></CardHeader><CardContent><p className="text-2xl font-bold">{analytics?.totalCustomers || 0}</p></CardContent></Card>
-          <Card><CardHeader className="flex flex-row justify-between"><CardTitle className="text-sm">Recorrência</CardTitle><Repeat className="h-4 w-4" /></CardHeader><CardContent><p className="text-2xl font-bold">{(analytics?.repeatRate || 0).toFixed(1)}%</p><p className="text-xs text-muted-foreground">{analytics?.repeatCustomers || 0} clientes recorrentes</p></CardContent></Card>
-          <Card><CardHeader className="flex flex-row justify-between"><CardTitle className="text-sm">Pedidos em aberto</CardTitle><Package className="h-4 w-4" /></CardHeader><CardContent><p className="text-2xl font-bold">{analytics?.pendingOrders || 0}</p></CardContent></Card>
-          <Card><CardHeader className="flex flex-row justify-between"><CardTitle className="text-sm">Taxa de cancelamento</CardTitle><AlertTriangle className="h-4 w-4" /></CardHeader><CardContent><p className="text-2xl font-bold">{(analytics?.cancellationRate || 0).toFixed(1)}%</p><p className="text-xs text-muted-foreground">{analytics?.cancelledOrders || 0} cancelados</p></CardContent></Card>
+      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-8">
+        {isLoading ? [...Array(8)].map((_, i) => <Card key={i}><CardHeader><Skeleton className="h-4 w-24" /></CardHeader></Card>) : <>
+          <Card><CardHeader className="flex flex-row justify-between"><CardTitle className="text-sm">Faturamento líquido</CardTitle><DollarSign className="h-4 w-4" /></CardHeader><CardContent><p className="text-xl font-bold">{formatCurrency(analytics?.totalRevenue || 0)}</p></CardContent></Card>
+          <Card><CardHeader className="flex flex-row justify-between"><CardTitle className="text-sm">Faturamento bruto</CardTitle><TrendingUp className="h-4 w-4" /></CardHeader><CardContent><p className="text-xl font-bold">{formatCurrency(analytics?.grossRevenue || 0)}</p></CardContent></Card>
+          <Card><CardHeader className="flex flex-row justify-between"><CardTitle className="text-sm">Descontos</CardTitle><Scissors className="h-4 w-4" /></CardHeader><CardContent><p className="text-xl font-bold">{formatCurrency(analytics?.totalDiscount || 0)}</p></CardContent></Card>
+          <Card><CardHeader className="flex flex-row justify-between"><CardTitle className="text-sm">Ticket Médio</CardTitle><TrendingUp className="h-4 w-4" /></CardHeader><CardContent><p className="text-xl font-bold">{formatCurrency(analytics?.averageTicket || 0)}</p></CardContent></Card>
+          <Card><CardHeader className="flex flex-row justify-between"><CardTitle className="text-sm">Clientes</CardTitle><Users className="h-4 w-4" /></CardHeader><CardContent><p className="text-xl font-bold">{analytics?.totalCustomers || 0}</p></CardContent></Card>
+          <Card><CardHeader className="flex flex-row justify-between"><CardTitle className="text-sm">Recorrência</CardTitle><Repeat className="h-4 w-4" /></CardHeader><CardContent><p className="text-xl font-bold">{(analytics?.repeatRate || 0).toFixed(1)}%</p></CardContent></Card>
+          <Card><CardHeader className="flex flex-row justify-between"><CardTitle className="text-sm">Pedidos em aberto</CardTitle><Package className="h-4 w-4" /></CardHeader><CardContent><p className="text-xl font-bold">{analytics?.pendingOrders || 0}</p></CardContent></Card>
+          <Card><CardHeader className="flex flex-row justify-between"><CardTitle className="text-sm">Cancelamento</CardTitle><AlertTriangle className="h-4 w-4" /></CardHeader><CardContent><p className="text-xl font-bold">{(analytics?.cancellationRate || 0).toFixed(1)}%</p></CardContent></Card>
         </>}
       </div>
 
@@ -63,24 +65,41 @@ export default function AnalyticsPage() {
         <Card><CardHeader><CardTitle>Top Produtos</CardTitle><CardDescription>Itens mais vendidos (quantidade)</CardDescription></CardHeader><CardContent>{isLoading ? <Skeleton className="h-80 w-full" /> : <div className="h-80"><Bar data={topProductsData} options={{ responsive: true, maintainAspectRatio: false, indexAxis: "y" as const, plugins: { legend: { display: false } } }} /></div>}</CardContent></Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Risco de Ruptura de Estoque</CardTitle>
-          <CardDescription>Produtos com estoque crítico (&lt;= 10 unidades)</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? <Skeleton className="h-24 w-full" /> : analytics?.lowStockProducts.length ? (
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              {analytics.lowStockProducts.map((item) => (
-                <div key={item.productId} className="rounded-lg border p-3">
-                  <p className="font-medium text-sm">{item.productName}</p>
-                  <Badge variant={item.stock <= 3 ? "destructive" : "secondary"} className="mt-2">{item.stock} em estoque</Badge>
-                </div>
-              ))}
-            </div>
-          ) : <p className="text-sm text-muted-foreground">Nenhum produto em estoque crítico no momento.</p>}
-        </CardContent>
-      </Card>
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card>
+          <CardHeader><CardTitle>Curva ABC</CardTitle><CardDescription>Classificação de produtos por receita acumulada</CardDescription></CardHeader>
+          <CardContent className="space-y-2">
+            {isLoading ? <Skeleton className="h-40 w-full" /> : analytics?.abcCurve.slice(0, 8).map((item) => (
+              <div key={item.productId} className="flex justify-between text-sm">
+                <span className="truncate max-w-[160px]">{item.productName}</span>
+                <Badge variant={item.classType === "A" ? "default" : item.classType === "B" ? "secondary" : "outline"}>{item.classType}</Badge>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle>Segmentação RFM</CardTitle><CardDescription>Recência, frequência e valor monetário</CardDescription></CardHeader>
+          <CardContent className="space-y-2">
+            {isLoading ? <Skeleton className="h-40 w-full" /> : analytics?.rfmSegments.map((segment) => (
+              <div key={segment.segment} className="flex justify-between text-sm">
+                <span>{segment.segment}</span>
+                <span>{segment.customers} clientes</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle>Reabastecimento sugerido</CardTitle><CardDescription>Produtos abaixo do ponto de reposição</CardDescription></CardHeader>
+          <CardContent className="space-y-2">
+            {isLoading ? <Skeleton className="h-40 w-full" /> : analytics?.reorderSuggestions.slice(0, 6).map((item) => (
+              <div key={item.productId} className="rounded border p-2 text-sm">
+                <p className="font-medium truncate">{item.productName}</p>
+                <p>Estoque: {item.currentStock} | Repor: {item.suggestedOrderQty}</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

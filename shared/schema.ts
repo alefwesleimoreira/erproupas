@@ -50,6 +50,8 @@ export const orderSchema = z.object({
   customerName: z.string().min(1, "Nome do cliente é obrigatório"),
   customerPhone: z.string().min(1, "Telefone é obrigatório"),
   customerAddress: z.string().min(1, "Endereço é obrigatório"),
+  subtotalAmount: z.number().nonnegative("Subtotal inválido"),
+  discountAmount: z.number().nonnegative("Desconto inválido"),
   totalAmount: z.number().positive("Total deve ser maior que zero"),
   status: z.enum(orderStatuses),
   orderDate: z.string(),
@@ -60,6 +62,7 @@ export const insertOrderSchema = z.object({
   customerName: z.string().min(1, "Nome do cliente é obrigatório"),
   customerPhone: z.string().min(10, "Telefone deve ter ao menos 10 dígitos"),
   customerAddress: z.string().min(5, "Endereço é obrigatório"),
+  discountAmount: z.coerce.number().min(0, "Desconto não pode ser negativo").optional().default(0),
   items: z.array(insertOrderItemSchema).min(1, "Adicione ao menos 1 item ao pedido"),
 });
 
@@ -79,6 +82,8 @@ export type Customer = z.infer<typeof customerSchema>;
 
 export const analyticsSchema = z.object({
   totalRevenue: z.number(),
+  grossRevenue: z.number(),
+  totalDiscount: z.number(),
   totalOrders: z.number(),
   totalProducts: z.number(),
   todayOrders: z.number(),
@@ -96,6 +101,15 @@ export const analyticsSchema = z.object({
       stock: z.number(),
     }),
   ),
+  reorderSuggestions: z.array(
+    z.object({
+      productId: z.string(),
+      productName: z.string(),
+      currentStock: z.number(),
+      reorderPoint: z.number(),
+      suggestedOrderQty: z.number(),
+    }),
+  ),
   revenueByStatus: z.array(
     z.object({
       status: z.enum(orderStatuses),
@@ -108,6 +122,22 @@ export const analyticsSchema = z.object({
       month: z.string(),
       revenue: z.number(),
       orders: z.number(),
+    }),
+  ),
+  abcCurve: z.array(
+    z.object({
+      productId: z.string(),
+      productName: z.string(),
+      revenue: z.number(),
+      accumulatedShare: z.number(),
+      classType: z.enum(["A", "B", "C"]),
+    }),
+  ),
+  rfmSegments: z.array(
+    z.object({
+      segment: z.string(),
+      customers: z.number(),
+      revenue: z.number(),
     }),
   ),
   salesTrend: z.array(
