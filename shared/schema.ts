@@ -82,6 +82,34 @@ export const analyticsSchema = z.object({
   totalOrders: z.number(),
   totalProducts: z.number(),
   todayOrders: z.number(),
+  averageTicket: z.number(),
+  totalCustomers: z.number(),
+  repeatCustomers: z.number(),
+  repeatRate: z.number(),
+  cancelledOrders: z.number(),
+  cancellationRate: z.number(),
+  pendingOrders: z.number(),
+  lowStockProducts: z.array(
+    z.object({
+      productId: z.string(),
+      productName: z.string(),
+      stock: z.number(),
+    }),
+  ),
+  revenueByStatus: z.array(
+    z.object({
+      status: z.enum(orderStatuses),
+      orders: z.number(),
+      revenue: z.number(),
+    }),
+  ),
+  monthlyRevenueTrend: z.array(
+    z.object({
+      month: z.string(),
+      revenue: z.number(),
+      orders: z.number(),
+    }),
+  ),
   salesTrend: z.array(
     z.object({
       date: z.string(),

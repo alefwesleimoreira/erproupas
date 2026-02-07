@@ -1,10 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import { TrendingUp, Package, DollarSign } from "lucide-react";
+import { TrendingUp, Package, DollarSign, Users, AlertTriangle, Repeat } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { Line, Bar, Doughnut } from "react-chartjs-2";
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend, Filler } from "chart.js";
 import type { Analytics } from "@shared/schema";
+import { statusConfig } from "@shared/schema";
 import { format } from "date-fns";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend, Filler);
@@ -12,23 +14,73 @@ const formatCurrency = (v: number) => new Intl.NumberFormat("pt-BR", { style: "c
 
 export default function AnalyticsPage() {
   const { data: analytics, isLoading } = useQuery<Analytics>({ queryKey: ["/api/analytics"] });
-  const average = analytics && analytics.totalOrders > 0 ? analytics.totalRevenue / analytics.totalOrders : 0;
+
+  const monthlyData = {
+    labels: analytics?.monthlyRevenueTrend.map((i) => format(new Date(i.month), "MMM/yy")) || [],
+    datasets: [
+      { label: "Faturamento", data: analytics?.monthlyRevenueTrend.map((i) => i.revenue) || [], borderColor: "rgb(59,130,246)", backgroundColor: "rgba(59,130,246,.15)", fill: true },
+      { label: "Pedidos", data: analytics?.monthlyRevenueTrend.map((i) => i.orders) || [], borderColor: "rgb(34,197,94)", backgroundColor: "rgba(34,197,94,.15)", fill: true },
+    ],
+  };
+
+  const categoryData = {
+    labels: analytics?.categoryDistribution.map((i) => i.category) || [],
+    datasets: [{ data: analytics?.categoryDistribution.map((i) => i.revenue) || [] }],
+  };
+
+  const statusData = {
+    labels: analytics?.revenueByStatus.map((i) => statusConfig[i.status].label) || [],
+    datasets: [{ label: "Pedidos", data: analytics?.revenueByStatus.map((i) => i.orders) || [], backgroundColor: "rgba(99,102,241,.8)" }],
+  };
+
+  const topProductsData = {
+    labels: analytics?.topProducts.slice(0, 5).map((i) => i.productName) || [],
+    datasets: [{ label: "Qtd. vendida", data: analytics?.topProducts.slice(0, 5).map((i) => i.totalSold) || [], backgroundColor: "rgba(14,165,233,.8)" }],
+  };
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-3xl font-bold text-foreground">Relatórios</h1><p className="text-muted-foreground">Desempenho de vendas da loja</p></div>
-      <div className="grid gap-6 md:grid-cols-3">
-        {isLoading ? [...Array(3)].map((_, i) => <Card key={i}><CardHeader><Skeleton className="h-4 w-24" /></CardHeader></Card>) : <>
-          <Card><CardHeader className="flex flex-row items-center justify-between"><CardTitle className="text-sm">Faturamento Total</CardTitle><DollarSign className="h-5 w-5 text-green-600" /></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(analytics?.totalRevenue || 0)}</div></CardContent></Card>
-          <Card><CardHeader className="flex flex-row items-center justify-between"><CardTitle className="text-sm">Pedidos</CardTitle><TrendingUp className="h-5 w-5 text-blue-600" /></CardHeader><CardContent><div className="text-2xl font-bold">{analytics?.totalOrders || 0}</div></CardContent></Card>
-          <Card><CardHeader className="flex flex-row items-center justify-between"><CardTitle className="text-sm">Ticket Médio</CardTitle><Package className="h-5 w-5 text-orange-600" /></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(average)}</div></CardContent></Card>
+      <div>
+        <h1 className="text-3xl font-bold text-foreground">BI e Relatórios</h1>
+        <p className="text-muted-foreground">Indicadores fundamentais para decisão comercial e operacional</p>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-6">
+        {isLoading ? [...Array(6)].map((_, i) => <Card key={i}><CardHeader><Skeleton className="h-4 w-24" /></CardHeader></Card>) : <>
+          <Card><CardHeader className="flex flex-row justify-between"><CardTitle className="text-sm">Faturamento</CardTitle><DollarSign className="h-4 w-4" /></CardHeader><CardContent><p className="text-2xl font-bold">{formatCurrency(analytics?.totalRevenue || 0)}</p></CardContent></Card>
+          <Card><CardHeader className="flex flex-row justify-between"><CardTitle className="text-sm">Ticket Médio</CardTitle><TrendingUp className="h-4 w-4" /></CardHeader><CardContent><p className="text-2xl font-bold">{formatCurrency(analytics?.averageTicket || 0)}</p></CardContent></Card>
+          <Card><CardHeader className="flex flex-row justify-between"><CardTitle className="text-sm">Clientes</CardTitle><Users className="h-4 w-4" /></CardHeader><CardContent><p className="text-2xl font-bold">{analytics?.totalCustomers || 0}</p></CardContent></Card>
+          <Card><CardHeader className="flex flex-row justify-between"><CardTitle className="text-sm">Recorrência</CardTitle><Repeat className="h-4 w-4" /></CardHeader><CardContent><p className="text-2xl font-bold">{(analytics?.repeatRate || 0).toFixed(1)}%</p><p className="text-xs text-muted-foreground">{analytics?.repeatCustomers || 0} clientes recorrentes</p></CardContent></Card>
+          <Card><CardHeader className="flex flex-row justify-between"><CardTitle className="text-sm">Pedidos em aberto</CardTitle><Package className="h-4 w-4" /></CardHeader><CardContent><p className="text-2xl font-bold">{analytics?.pendingOrders || 0}</p></CardContent></Card>
+          <Card><CardHeader className="flex flex-row justify-between"><CardTitle className="text-sm">Taxa de cancelamento</CardTitle><AlertTriangle className="h-4 w-4" /></CardHeader><CardContent><p className="text-2xl font-bold">{(analytics?.cancellationRate || 0).toFixed(1)}%</p><p className="text-xs text-muted-foreground">{analytics?.cancelledOrders || 0} cancelados</p></CardContent></Card>
         </>}
       </div>
+
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card><CardHeader><CardTitle>Tendência de Vendas</CardTitle><CardDescription>Últimos 7 dias</CardDescription></CardHeader><CardContent>{isLoading ? <Skeleton className="h-80 w-full" /> : <div className="h-80"><Line data={{ labels: analytics?.salesTrend.map((i) => format(new Date(i.date), "dd/MM")) || [], datasets: [{ label: "Faturamento", data: analytics?.salesTrend.map((i) => i.revenue) || [], borderColor: "rgb(33,150,243)" }, { label: "Pedidos", data: analytics?.salesTrend.map((i) => i.orders) || [], borderColor: "rgb(76,175,80)" }] }} options={{ responsive: true, maintainAspectRatio: false }} /></div>}</CardContent></Card>
-        <Card><CardHeader><CardTitle>Produtos Mais Vendidos</CardTitle></CardHeader><CardContent>{isLoading ? <Skeleton className="h-80 w-full" /> : <div className="h-80"><Bar data={{ labels: analytics?.topProducts.slice(0, 5).map((i) => i.productName) || [], datasets: [{ label: "Qtd vendida", data: analytics?.topProducts.slice(0, 5).map((i) => i.totalSold) || [], backgroundColor: "rgba(33,150,243,.8)" }] }} options={{ responsive: true, maintainAspectRatio: false }} /></div>}</CardContent></Card>
-        <Card><CardHeader><CardTitle>Participação por Categoria</CardTitle></CardHeader><CardContent>{isLoading ? <Skeleton className="h-80 w-full" /> : <div className="h-80"><Doughnut data={{ labels: analytics?.categoryDistribution.map((i) => i.category) || [], datasets: [{ label: "Faturamento", data: analytics?.categoryDistribution.map((i) => i.revenue) || [] }] }} options={{ responsive: true, maintainAspectRatio: false }} /></div>}</CardContent></Card>
+        <Card><CardHeader><CardTitle>Evolução Mensal</CardTitle><CardDescription>Faturamento e volume de pedidos (6 meses)</CardDescription></CardHeader><CardContent>{isLoading ? <Skeleton className="h-80 w-full" /> : <div className="h-80"><Line data={monthlyData} options={{ responsive: true, maintainAspectRatio: false }} /></div>}</CardContent></Card>
+        <Card><CardHeader><CardTitle>Pedidos por Status</CardTitle><CardDescription>Distribuição operacional dos pedidos</CardDescription></CardHeader><CardContent>{isLoading ? <Skeleton className="h-80 w-full" /> : <div className="h-80"><Bar data={statusData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }} /></div>}</CardContent></Card>
+        <Card><CardHeader><CardTitle>Faturamento por Categoria</CardTitle><CardDescription>Mix de receita por departamento</CardDescription></CardHeader><CardContent>{isLoading ? <Skeleton className="h-80 w-full" /> : <div className="h-80"><Doughnut data={categoryData} options={{ responsive: true, maintainAspectRatio: false }} /></div>}</CardContent></Card>
+        <Card><CardHeader><CardTitle>Top Produtos</CardTitle><CardDescription>Itens mais vendidos (quantidade)</CardDescription></CardHeader><CardContent>{isLoading ? <Skeleton className="h-80 w-full" /> : <div className="h-80"><Bar data={topProductsData} options={{ responsive: true, maintainAspectRatio: false, indexAxis: "y" as const, plugins: { legend: { display: false } } }} /></div>}</CardContent></Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Risco de Ruptura de Estoque</CardTitle>
+          <CardDescription>Produtos com estoque crítico (&lt;= 10 unidades)</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? <Skeleton className="h-24 w-full" /> : analytics?.lowStockProducts.length ? (
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              {analytics.lowStockProducts.map((item) => (
+                <div key={item.productId} className="rounded-lg border p-3">
+                  <p className="font-medium text-sm">{item.productName}</p>
+                  <Badge variant={item.stock <= 3 ? "destructive" : "secondary"} className="mt-2">{item.stock} em estoque</Badge>
+                </div>
+              ))}
+            </div>
+          ) : <p className="text-sm text-muted-foreground">Nenhum produto em estoque crítico no momento.</p>}
+        </CardContent>
+      </Card>
     </div>
   );
 }

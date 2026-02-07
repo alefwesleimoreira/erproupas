@@ -272,6 +272,29 @@ export class MemStorage implements IStorage {
     const totalRevenue = orders.reduce((sum, order) => sum + order.totalAmount, 0);
     const totalOrders = orders.length;
     const totalProducts = products.length;
+    const averageTicket = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+    const pendingOrders = orders.filter((order) => ["pending", "confirmed", "preparing", "ready"].includes(order.status)).length;
+    const cancelledOrders = orders.filter((order) => order.status === "cancelled").length;
+    const cancellationRate = totalOrders > 0 ? (cancelledOrders / totalOrders) * 100 : 0;
+
+    const customerOrderCount = new Map<string, number>();
+    orders.forEach((order) => {
+      customerOrderCount.set(order.customerPhone, (customerOrderCount.get(order.customerPhone) || 0) + 1);
+    });
+    const totalCustomers = customerOrderCount.size;
+    const repeatCustomers = Array.from(customerOrderCount.values()).filter((count) => count > 1).length;
+    const repeatRate = totalCustomers > 0 ? (repeatCustomers / totalCustomers) * 100 : 0;
+
+    const lowStockProducts = products
+      .filter((product) => product.stock <= 10)
+      .sort((a, b) => a.stock - b.stock)
+      .slice(0, 8)
+      .map((product) => ({
+        productId: product.id,
+        productName: product.name,
+        stock: product.stock,
+      }));
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -297,6 +320,30 @@ export class MemStorage implements IStorage {
         date: date.toISOString(),
         revenue: dayOrders.reduce((sum, order) => sum + order.totalAmount, 0),
         orders: dayOrders.length,
+      };
+    });
+
+    const last6Months = Array.from({ length: 6 }, (_, i) => {
+      const date = new Date();
+      date.setMonth(date.getMonth() - (5 - i));
+      date.setDate(1);
+      date.setHours(0, 0, 0, 0);
+      return date;
+    });
+
+    const monthlyRevenueTrend = last6Months.map((date) => {
+      const nextMonth = new Date(date);
+      nextMonth.setMonth(nextMonth.getMonth() + 1);
+
+      const monthOrders = orders.filter((order) => {
+        const orderDate = new Date(order.orderDate);
+        return orderDate >= date && orderDate < nextMonth;
+      });
+
+      return {
+        month: date.toISOString(),
+        revenue: monthOrders.reduce((sum, order) => sum + order.totalAmount, 0),
+        orders: monthOrders.length,
       };
     });
 
@@ -351,16 +398,47 @@ export class MemStorage implements IStorage {
       }))
       .sort((a, b) => b.revenue - a.revenue);
 
+    const statusMap = new Map<
+      OrderStatus,
+      {
+        orders: number;
+        revenue: number;
+      }
+    >();
+
+    orders.forEach((order) => {
+      const current = statusMap.get(order.status) || { orders: 0, revenue: 0 };
+      current.orders += 1;
+      current.revenue += order.totalAmount;
+      statusMap.set(order.status, current);
+    });
+
+    const revenueByStatus = ["pending", "confirmed", "preparing", "ready", "delivered", "cancelled"].map((status) => {
+      const data = statusMap.get(status as OrderStatus) || { orders: 0, revenue: 0 };
+      return { status: status as OrderStatus, orders: data.orders, revenue: data.revenue };
+    });
+
     return {
       totalRevenue,
       totalOrders,
       totalProducts,
       todayOrders,
+      averageTicket,
+      totalCustomers,
+      repeatCustomers,
+      repeatRate,
+      cancelledOrders,
+      cancellationRate,
+      pendingOrders,
+      lowStockProducts,
+      revenueByStatus,
+      monthlyRevenueTrend,
       salesTrend,
       topProducts,
       categoryDistribution,
     };
   }
+
 }
 
 export const storage = new MemStorage();
