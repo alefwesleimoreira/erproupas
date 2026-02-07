@@ -1,17 +1,26 @@
 import { z } from "zod";
 
-export const categories = ["Burgers", "Sides", "Drinks", "Appetizers", "Desserts", "Pizza", "Pasta", "Salads"] as const;
+export const categories = [
+  "Feminino",
+  "Masculino",
+  "Infantil",
+  "Calçados",
+  "Acessórios",
+  "Esportivo",
+  "Moda Praia",
+  "Íntimo",
+] as const;
 
 export const orderStatuses = ["pending", "confirmed", "preparing", "ready", "delivered", "cancelled"] as const;
 
-export type OrderStatus = typeof orderStatuses[number];
-export type Category = typeof categories[number];
+export type OrderStatus = (typeof orderStatuses)[number];
+export type Category = (typeof categories)[number];
 
 export const productSchema = z.object({
   id: z.string(),
-  name: z.string().min(1, "Name is required"),
-  price: z.coerce.number().positive("Price must be positive"),
-  stock: z.coerce.number().int().min(0, "Stock cannot be negative"),
+  name: z.string().min(1, "Nome é obrigatório"),
+  price: z.coerce.number().positive("Preço deve ser maior que zero"),
+  stock: z.coerce.number().int().min(0, "Estoque não pode ser negativo"),
   category: z.enum(categories),
   imageUrl: z.string().optional(),
   createdAt: z.string(),
@@ -27,8 +36,8 @@ export const orderItemSchema = z.object({
   orderId: z.string(),
   productId: z.string(),
   productName: z.string(),
-  quantity: z.number().int().positive("Quantity must be positive"),
-  unitPrice: z.number().positive("Price must be positive"),
+  quantity: z.number().int().positive("Quantidade deve ser maior que zero"),
+  unitPrice: z.number().positive("Preço deve ser maior que zero"),
 });
 
 export const insertOrderItemSchema = orderItemSchema.omit({ id: true, orderId: true });
@@ -38,20 +47,20 @@ export type InsertOrderItem = z.infer<typeof insertOrderItemSchema>;
 
 export const orderSchema = z.object({
   id: z.string(),
-  customerName: z.string().min(1, "Customer name is required"),
-  customerPhone: z.string().min(1, "Phone number is required"),
-  customerAddress: z.string().min(1, "Address is required"),
-  totalAmount: z.number().positive("Total must be positive"),
+  customerName: z.string().min(1, "Nome do cliente é obrigatório"),
+  customerPhone: z.string().min(1, "Telefone é obrigatório"),
+  customerAddress: z.string().min(1, "Endereço é obrigatório"),
+  totalAmount: z.number().positive("Total deve ser maior que zero"),
   status: z.enum(orderStatuses),
   orderDate: z.string(),
   items: z.array(orderItemSchema),
 });
 
 export const insertOrderSchema = z.object({
-  customerName: z.string().min(1, "Customer name is required"),
-  customerPhone: z.string().min(10, "Phone number must be at least 10 digits"),
-  customerAddress: z.string().min(5, "Address is required"),
-  items: z.array(insertOrderItemSchema).min(1, "At least one item is required"),
+  customerName: z.string().min(1, "Nome do cliente é obrigatório"),
+  customerPhone: z.string().min(10, "Telefone deve ter ao menos 10 dígitos"),
+  customerAddress: z.string().min(5, "Endereço é obrigatório"),
+  items: z.array(insertOrderItemSchema).min(1, "Adicione ao menos 1 item ao pedido"),
 });
 
 export type Order = z.infer<typeof orderSchema>;
@@ -73,61 +82,67 @@ export const analyticsSchema = z.object({
   totalOrders: z.number(),
   totalProducts: z.number(),
   todayOrders: z.number(),
-  salesTrend: z.array(z.object({
-    date: z.string(),
-    revenue: z.number(),
-    orders: z.number(),
-  })),
-  topProducts: z.array(z.object({
-    productId: z.string(),
-    productName: z.string(),
-    totalSold: z.number(),
-    revenue: z.number(),
-  })),
-  categoryDistribution: z.array(z.object({
-    category: z.string(),
-    count: z.number(),
-    revenue: z.number(),
-  })),
+  salesTrend: z.array(
+    z.object({
+      date: z.string(),
+      revenue: z.number(),
+      orders: z.number(),
+    }),
+  ),
+  topProducts: z.array(
+    z.object({
+      productId: z.string(),
+      productName: z.string(),
+      totalSold: z.number(),
+      revenue: z.number(),
+    }),
+  ),
+  categoryDistribution: z.array(
+    z.object({
+      category: z.string(),
+      count: z.number(),
+      revenue: z.number(),
+    }),
+  ),
 });
 
 export type Analytics = z.infer<typeof analyticsSchema>;
 
 export const statusConfig: Record<OrderStatus, { label: string; color: string; bgClass: string; textClass: string }> = {
-  pending: { 
-    label: "Pending", 
+  pending: {
+    label: "Pendente",
     color: "orange",
     bgClass: "bg-orange-100 dark:bg-orange-950",
-    textClass: "text-orange-700 dark:text-orange-300"
+    textClass: "text-orange-700 dark:text-orange-300",
   },
-  confirmed: { 
-    label: "Confirmed", 
+  confirmed: {
+    label: "Confirmado",
     color: "blue",
     bgClass: "bg-blue-100 dark:bg-blue-950",
-    textClass: "text-blue-700 dark:text-blue-300"
+    textClass: "text-blue-700 dark:text-blue-300",
   },
-  preparing: { 
-    label: "Preparing", 
+  preparing: {
+    label: "Separando",
     color: "purple",
     bgClass: "bg-purple-100 dark:bg-purple-950",
-    textClass: "text-purple-700 dark:text-purple-300"
+    textClass: "text-purple-700 dark:text-purple-300",
   },
-  ready: { 
-    label: "Ready", 
+  ready: {
+    label: "Pronto para envio",
     color: "green",
     bgClass: "bg-green-100 dark:bg-green-950",
-    textClass: "text-green-700 dark:text-green-300"
+    textClass: "text-green-700 dark:text-green-300",
   },
-  delivered: { 
-    label: "Delivered", 
+  delivered: {
+    label: "Entregue",
     color: "gray",
     bgClass: "bg-gray-100 dark:bg-gray-800",
-    textClass: "text-gray-700 dark:text-gray-300"
+    textClass: "text-gray-700 dark:text-gray-300",
   },
-  cancelled: { 
-    label: "Cancelled", 
+  cancelled: {
+    label: "Cancelado",
     color: "red",
     bgClass: "bg-red-100 dark:bg-red-950",
-    textClass: "text-red-700 dark:text-red-300"
+    textClass: "text-red-700 dark:text-red-300",
   },
 };

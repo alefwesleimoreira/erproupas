@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import type { Product, InsertProduct, Order, InsertOrder, OrderItem, Customer, Analytics, OrderStatus } from "@shared/schema";
+import type { Product, InsertProduct, Order, InsertOrder, Customer, Analytics, OrderStatus } from "@shared/schema";
 
 export interface IStorage {
   getProducts(): Promise<Product[]>;
@@ -32,26 +32,21 @@ export class MemStorage implements IStorage {
 
   private seedData() {
     const sampleProducts: InsertProduct[] = [
-      { name: "Cheeseburger", price: 12.99, stock: 50, category: "Burgers", imageUrl: "" },
-      { name: "Double Bacon Burger", price: 15.99, stock: 35, category: "Burgers", imageUrl: "" },
-      { name: "Veggie Burger", price: 11.99, stock: 40, category: "Burgers", imageUrl: "" },
-      { name: "French Fries", price: 4.99, stock: 100, category: "Sides", imageUrl: "" },
-      { name: "Onion Rings", price: 5.99, stock: 75, category: "Sides", imageUrl: "" },
-      { name: "Coleslaw", price: 3.99, stock: 60, category: "Sides", imageUrl: "" },
-      { name: "Coca-Cola", price: 2.99, stock: 200, category: "Drinks", imageUrl: "" },
-      { name: "Sprite", price: 2.99, stock: 180, category: "Drinks", imageUrl: "" },
-      { name: "Orange Juice", price: 3.99, stock: 120, category: "Drinks", imageUrl: "" },
-      { name: "Chicken Wings", price: 9.99, stock: 30, category: "Appetizers", imageUrl: "" },
-      { name: "Mozzarella Sticks", price: 7.99, stock: 45, category: "Appetizers", imageUrl: "" },
-      { name: "Nachos", price: 8.99, stock: 50, category: "Appetizers", imageUrl: "" },
-      { name: "Chocolate Cake", price: 6.99, stock: 20, category: "Desserts", imageUrl: "" },
-      { name: "Ice Cream Sundae", price: 5.99, stock: 35, category: "Desserts", imageUrl: "" },
-      { name: "Cheesecake", price: 7.99, stock: 25, category: "Desserts", imageUrl: "" },
-      { name: "Pepperoni Pizza", price: 14.99, stock: 40, category: "Pizza", imageUrl: "" },
-      { name: "Margherita Pizza", price: 12.99, stock: 45, category: "Pizza", imageUrl: "" },
-      { name: "Spaghetti Carbonara", price: 13.99, stock: 30, category: "Pasta", imageUrl: "" },
-      { name: "Caesar Salad", price: 8.99, stock: 55, category: "Salads", imageUrl: "" },
-      { name: "Greek Salad", price: 9.99, stock: 50, category: "Salads", imageUrl: "" },
+      { name: "Vestido Midi Floral", price: 179.9, stock: 32, category: "Feminino", imageUrl: "" },
+      { name: "Blusa de Linho", price: 129.9, stock: 45, category: "Feminino", imageUrl: "" },
+      { name: "Camisa Social Slim", price: 159.9, stock: 26, category: "Masculino", imageUrl: "" },
+      { name: "Calça Chino", price: 189.9, stock: 20, category: "Masculino", imageUrl: "" },
+      { name: "Conjunto Moletom Infantil", price: 149.9, stock: 18, category: "Infantil", imageUrl: "" },
+      { name: "Tênis Casual Branco", price: 249.9, stock: 28, category: "Calçados", imageUrl: "" },
+      { name: "Sandália Salto Bloco", price: 199.9, stock: 16, category: "Calçados", imageUrl: "" },
+      { name: "Bolsa Tiracolo", price: 139.9, stock: 22, category: "Acessórios", imageUrl: "" },
+      { name: "Boné Street", price: 69.9, stock: 40, category: "Acessórios", imageUrl: "" },
+      { name: "Legging Compressão", price: 119.9, stock: 34, category: "Esportivo", imageUrl: "" },
+      { name: "Top Fitness", price: 89.9, stock: 38, category: "Esportivo", imageUrl: "" },
+      { name: "Biquíni Cortininha", price: 99.9, stock: 24, category: "Moda Praia", imageUrl: "" },
+      { name: "Sunga Lisa", price: 79.9, stock: 21, category: "Moda Praia", imageUrl: "" },
+      { name: "Kit Meias Básicas", price: 49.9, stock: 60, category: "Íntimo", imageUrl: "" },
+      { name: "Pijama Algodão", price: 109.9, stock: 30, category: "Íntimo", imageUrl: "" },
     ];
 
     sampleProducts.forEach((product) => {
@@ -73,104 +68,56 @@ export class MemStorage implements IStorage {
       daysAgo: number;
     }> = [
       {
-        customerName: "John Smith",
-        customerPhone: "+1 (555) 123-4567",
-        customerAddress: "123 Main St, Springfield, IL 62701",
+        customerName: "Mariana Costa",
+        customerPhone: "(11) 98888-1111",
+        customerAddress: "Rua das Flores, 123 - São Paulo/SP",
         items: [
-          { productId: productArray[0].id, productName: productArray[0].name, quantity: 2, unitPrice: productArray[0].price },
-          { productId: productArray[3].id, productName: productArray[3].name, quantity: 2, unitPrice: productArray[3].price },
-          { productId: productArray[6].id, productName: productArray[6].name, quantity: 2, unitPrice: productArray[6].price },
+          { productId: productArray[0].id, productName: productArray[0].name, quantity: 1, unitPrice: productArray[0].price },
+          { productId: productArray[7].id, productName: productArray[7].name, quantity: 1, unitPrice: productArray[7].price },
         ],
         status: "delivered",
-        daysAgo: 5,
+        daysAgo: 6,
       },
       {
-        customerName: "Emma Johnson",
-        customerPhone: "+1 (555) 234-5678",
-        customerAddress: "456 Oak Ave, Chicago, IL 60601",
+        customerName: "Lucas Almeida",
+        customerPhone: "(21) 97777-2222",
+        customerAddress: "Av. Atlântica, 580 - Rio de Janeiro/RJ",
         items: [
-          { productId: productArray[15].id, productName: productArray[15].name, quantity: 1, unitPrice: productArray[15].price },
-          { productId: productArray[7].id, productName: productArray[7].name, quantity: 2, unitPrice: productArray[7].price },
+          { productId: productArray[2].id, productName: productArray[2].name, quantity: 2, unitPrice: productArray[2].price },
         ],
-        status: "delivered",
-        daysAgo: 4,
+        status: "confirmed",
+        daysAgo: 2,
       },
       {
-        customerName: "Michael Brown",
-        customerPhone: "+1 (555) 345-6789",
-        customerAddress: "789 Elm St, Boston, MA 02101",
+        customerName: "Fernanda Souza",
+        customerPhone: "(31) 96666-3333",
+        customerAddress: "Rua da Bahia, 950 - Belo Horizonte/MG",
         items: [
-          { productId: productArray[9].id, productName: productArray[9].name, quantity: 2, unitPrice: productArray[9].price },
-          { productId: productArray[4].id, productName: productArray[4].name, quantity: 1, unitPrice: productArray[4].price },
-          { productId: productArray[8].id, productName: productArray[8].name, quantity: 2, unitPrice: productArray[8].price },
+          { productId: productArray[5].id, productName: productArray[5].name, quantity: 1, unitPrice: productArray[5].price },
+          { productId: productArray[8].id, productName: productArray[8].name, quantity: 1, unitPrice: productArray[8].price },
         ],
         status: "ready",
-        daysAgo: 0,
+        daysAgo: 1,
       },
       {
-        customerName: "Sarah Davis",
-        customerPhone: "+1 (555) 456-7890",
-        customerAddress: "321 Pine Rd, Seattle, WA 98101",
+        customerName: "Renato Pereira",
+        customerPhone: "(41) 95555-4444",
+        customerAddress: "Rua XV de Novembro, 77 - Curitiba/PR",
         items: [
-          { productId: productArray[17].id, productName: productArray[17].name, quantity: 1, unitPrice: productArray[17].price },
-          { productId: productArray[18].id, productName: productArray[18].name, quantity: 1, unitPrice: productArray[18].price },
-          { productId: productArray[6].id, productName: productArray[6].name, quantity: 1, unitPrice: productArray[6].price },
+          { productId: productArray[9].id, productName: productArray[9].name, quantity: 2, unitPrice: productArray[9].price },
+          { productId: productArray[10].id, productName: productArray[10].name, quantity: 2, unitPrice: productArray[10].price },
         ],
         status: "preparing",
         daysAgo: 0,
-      },
-      {
-        customerName: "James Wilson",
-        customerPhone: "+1 (555) 567-8901",
-        customerAddress: "654 Maple Dr, Austin, TX 78701",
-        items: [
-          { productId: productArray[1].id, productName: productArray[1].name, quantity: 3, unitPrice: productArray[1].price },
-          { productId: productArray[3].id, productName: productArray[3].name, quantity: 3, unitPrice: productArray[3].price },
-          { productId: productArray[12].id, productName: productArray[12].name, quantity: 2, unitPrice: productArray[12].price },
-        ],
-        status: "confirmed",
-        daysAgo: 0,
-      },
-      {
-        customerName: "John Smith",
-        customerPhone: "+1 (555) 123-4567",
-        customerAddress: "123 Main St, Springfield, IL 62701",
-        items: [
-          { productId: productArray[15].id, productName: productArray[15].name, quantity: 2, unitPrice: productArray[15].price },
-          { productId: productArray[6].id, productName: productArray[6].name, quantity: 3, unitPrice: productArray[6].price },
-        ],
-        status: "pending",
-        daysAgo: 0,
-      },
-      {
-        customerName: "Emma Johnson",
-        customerPhone: "+1 (555) 234-5678",
-        customerAddress: "456 Oak Ave, Chicago, IL 60601",
-        items: [
-          { productId: productArray[0].id, productName: productArray[0].name, quantity: 2, unitPrice: productArray[0].price },
-          { productId: productArray[3].id, productName: productArray[3].name, quantity: 2, unitPrice: productArray[3].price },
-        ],
-        status: "delivered",
-        daysAgo: 3,
-      },
-      {
-        customerName: "Michael Brown",
-        customerPhone: "+1 (555) 345-6789",
-        customerAddress: "789 Elm St, Boston, MA 02101",
-        items: [
-          { productId: productArray[16].id, productName: productArray[16].name, quantity: 1, unitPrice: productArray[16].price },
-          { productId: productArray[7].id, productName: productArray[7].name, quantity: 2, unitPrice: productArray[7].price },
-        ],
-        status: "delivered",
-        daysAgo: 2,
       },
     ];
 
     sampleOrders.forEach((orderData) => {
       const id = randomUUID();
-      const totalAmount = orderData.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
       const orderDate = new Date();
       orderDate.setDate(orderDate.getDate() - orderData.daysAgo);
+
+      const totalAmount = orderData.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
 
       const order: Order = {
         id,
@@ -180,20 +127,15 @@ export class MemStorage implements IStorage {
         totalAmount,
         status: orderData.status,
         orderDate: orderDate.toISOString(),
-        items: orderData.items.map((item) => ({
-          id: randomUUID(),
-          orderId: id,
-          ...item,
-        })),
+        items: orderData.items.map((item) => ({ id: randomUUID(), orderId: id, ...item })),
       };
+
       this.orders.set(id, order);
     });
   }
 
   async getProducts(): Promise<Product[]> {
-    return Array.from(this.products.values()).sort((a, b) => 
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
+    return Array.from(this.products.values()).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
   async getProduct(id: string): Promise<Product | undefined> {
@@ -236,9 +178,7 @@ export class MemStorage implements IStorage {
   }
 
   async getOrders(): Promise<Order[]> {
-    return Array.from(this.orders.values()).sort((a, b) => 
-      new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime()
-    );
+    return Array.from(this.orders.values()).sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime());
   }
 
   async getOrder(id: string): Promise<Order | undefined> {
@@ -251,6 +191,16 @@ export class MemStorage implements IStorage {
   }
 
   async createOrder(insertOrder: InsertOrder): Promise<Order> {
+    for (const item of insertOrder.items) {
+      const product = this.products.get(item.productId);
+      if (!product) {
+        throw new Error(`Produto não encontrado: ${item.productName}`);
+      }
+      if (item.quantity > product.stock) {
+        throw new Error(`Estoque insuficiente para ${product.name}. Disponível: ${product.stock}`);
+      }
+    }
+
     const id = randomUUID();
     const totalAmount = insertOrder.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
 
@@ -312,9 +262,7 @@ export class MemStorage implements IStorage {
       }
     });
 
-    return Array.from(customerMap.values()).sort((a, b) => 
-      new Date(b.lastOrderDate).getTime() - new Date(a.lastOrderDate).getTime()
-    );
+    return Array.from(customerMap.values()).sort((a, b) => new Date(b.lastOrderDate).getTime() - new Date(a.lastOrderDate).getTime());
   }
 
   async getAnalytics(): Promise<Analytics> {
