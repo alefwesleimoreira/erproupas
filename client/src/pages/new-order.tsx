@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Minus, ShoppingCart, Trash2 } from "lucide-react";
+import { Plus, Minus, ShoppingCart, Trash2, Percent } from "lucide-react";
 import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -21,7 +21,10 @@ interface CartItem {
   productName: string;
   quantity: number;
   unitPrice: number;
+  maxStock: number;
 }
+
+const formatCurrency = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
 export default function NewOrder() {
   const [, setLocation] = useLocation();
@@ -29,302 +32,117 @@ export default function NewOrder() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const { toast } = useToast();
 
-  const { data: products, isLoading } = useQuery<Product[]>({
-    queryKey: ["/api/products"],
-  });
-
+  const { data: products, isLoading } = useQuery<Product[]>({ queryKey: ["/api/products"] });
   const form = useForm<InsertOrder>({
     resolver: zodResolver(insertOrderSchema),
-    defaultValues: {
-      customerName: "",
-      customerPhone: "",
-      customerAddress: "",
-      items: [],
-    },
+    defaultValues: { customerName: "", customerPhone: "", customerAddress: "", discountAmount: 0, items: [] },
   });
 
   const createOrderMutation = useMutation({
     mutationFn: (data: InsertOrder) => apiRequest("POST", "/api/orders", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
-      toast({ title: "Success", description: "Order created successfully" });
-      setCart([]);
-      form.reset();
+      toast({ title: "Sucesso", description: "Pedido criado com sucesso" });
       setLocation("/orders");
     },
-    onError: (error: any) => {
-      const message = error?.message || "Failed to create order";
-      toast({ title: "Error", description: message, variant: "destructive" });
-    },
+    onError: (error: any) => toast({ title: "Erro", description: error?.message || "Falha ao criar pedido", variant: "destructive" }),
   });
 
-  const filteredProducts = products?.filter((product) => {
-    const matchesCategory = selectedCategory === "all" || product.category === selectedCategory;
-    const inStock = product.stock > 0;
-    return matchesCategory && inStock;
-  });
+  const filteredProducts = products?.filter((p) => (selectedCategory === "all" || p.category === selectedCategory) && p.stock > 0);
+  const subtotal = cart.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+  const discountAmount = Math.min(form.watch("discountAmount") || 0, subtotal);
+  const totalAmount = Math.max(0, subtotal - discountAmount);
 
   const addToCart = (product: Product) => {
-    const existingItem = cart.find((item) => item.productId === product.id);
-    if (existingItem) {
-      setCart(
-        cart.map((item) =>
-          item.productId === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        )
-      );
+    const existing = cart.find((item) => item.productId === product.id);
+    if (existing && existing.quantity >= existing.maxStock) {
+      return toast({ title: "Atenção", description: "Quantidade máxima em estoque atingida" });
+    }
+    if (existing) {
+      setCart(cart.map((item) => (item.productId === product.id ? { ...item, quantity: item.quantity + 1 } : item)));
     } else {
-      setCart([
-        ...cart,
-        {
-          productId: product.id,
-          productName: product.name,
-          quantity: 1,
-          unitPrice: product.price,
-        },
-      ]);
+      setCart([...cart, { productId: product.id, productName: product.name, quantity: 1, unitPrice: product.price, maxStock: product.stock }]);
     }
-  };
-
-  const updateQuantity = (productId: string, delta: number) => {
-    setCart(
-      cart
-        .map((item) =>
-          item.productId === productId
-            ? { ...item, quantity: Math.max(0, item.quantity + delta) }
-            : item
-        )
-        .filter((item) => item.quantity > 0)
-    );
-  };
-
-  const removeFromCart = (productId: string) => {
-    setCart(cart.filter((item) => item.productId !== productId));
-  };
-
-  const totalAmount = cart.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
-
-  const handleSubmit = (data: InsertOrder) => {
-    if (cart.length === 0) {
-      toast({ title: "Error", description: "Please add items to the order", variant: "destructive" });
-      return;
-    }
-    createOrderMutation.mutate({
-      ...data,
-      items: cart,
-    });
   };
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-foreground" data-testid="text-new-order-title">New Order</h1>
-        <p className="text-muted-foreground">Create a new order for a customer</p>
+        <h1 className="text-3xl font-bold text-foreground">Novo Pedido</h1>
+        <p className="text-muted-foreground">Monte um pedido com produtos disponíveis em estoque</p>
       </div>
-
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
-          <div className="flex items-center gap-4">
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="w-full sm:w-64" data-testid="select-category-filter">
-                <SelectValue placeholder="All Categories" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                {categories.map((category) => (
-                  <SelectItem key={category} value={category}>
-                    {category}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
+          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+            <SelectTrigger className="w-full sm:w-64"><SelectValue placeholder="Categorias" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as categorias</SelectItem>
+              {categories.map((category) => <SelectItem key={category} value={category}>{category}</SelectItem>)}
+            </SelectContent>
+          </Select>
           {isLoading ? (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {[...Array(6)].map((_, i) => (
-                <Card key={i}>
-                  <CardHeader>
-                    <Skeleton className="h-6 w-32" />
-                    <Skeleton className="h-4 w-20" />
-                  </CardHeader>
-                  <CardFooter>
-                    <Skeleton className="h-9 w-full" />
-                  </CardFooter>
-                </Card>
-              ))}
-            </div>
-          ) : filteredProducts && filteredProducts.length > 0 ? (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {filteredProducts.map((product) => (
-                <Card key={product.id} className="hover-elevate" data-testid={`card-product-${product.id}`}>
-                  <CardHeader className="space-y-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <CardTitle className="text-base">{product.name}</CardTitle>
-                      <Badge variant="secondary" className="text-xs">{product.category}</Badge>
-                    </div>
-                    <CardDescription className="text-lg font-bold text-foreground">
-                      ${product.price.toFixed(2)}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardFooter>
-                    <Button
-                      className="w-full"
-                      onClick={() => addToCart(product)}
-                      data-testid={`button-add-${product.id}`}
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add to Order
-                    </Button>
-                  </CardFooter>
-                </Card>
-              ))}
-            </div>
+            <div className="grid gap-4 sm:grid-cols-2">{[...Array(6)].map((_, i) => <Card key={i}><CardHeader><Skeleton className="h-6 w-32" /></CardHeader><CardFooter><Skeleton className="h-9 w-full" /></CardFooter></Card>)}</div>
           ) : (
-            <Card>
-              <CardContent className="py-16 text-center">
-                <ShoppingCart className="mx-auto h-16 w-16 text-muted-foreground" />
-                <h3 className="mt-4 text-lg font-semibold text-foreground">No products available</h3>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {selectedCategory !== "all"
-                    ? "No products in this category"
-                    : "Please add products to your inventory"}
-                </p>
-              </CardContent>
-            </Card>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {filteredProducts?.map((product) => (
+                <Card key={product.id} className="hover-elevate">
+                  <CardHeader>
+                    <CardTitle>{product.name}</CardTitle>
+                    <CardDescription>{formatCurrency(product.price)}</CardDescription>
+                  </CardHeader>
+                  <CardFooter className="flex justify-between">
+                    <Badge variant="secondary">{product.stock} em estoque</Badge>
+                    <Button onClick={() => addToCart(product)}>Adicionar</Button>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
           )}
         </div>
-
         <div className="lg:sticky lg:top-6 lg:self-start">
           <Card>
             <CardHeader>
-              <CardTitle>Order Summary</CardTitle>
-              <CardDescription>
-                {cart.length} {cart.length === 1 ? "item" : "items"}
-              </CardDescription>
+              <CardTitle>Resumo do Pedido</CardTitle>
+              <CardDescription>{cart.length} {cart.length === 1 ? "item" : "itens"}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {cart.length > 0 ? (
-                <>
-                  <div className="space-y-3">
-                    {cart.map((item) => (
-                      <div key={item.productId} className="flex items-start justify-between gap-2" data-testid={`cart-item-${item.productId}`}>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-foreground truncate">{item.productName}</p>
-                          <p className="text-xs text-muted-foreground">${item.unitPrice.toFixed(2)} each</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => updateQuantity(item.productId, -1)}
-                            data-testid={`button-decrease-${item.productId}`}
-                          >
-                            <Minus className="h-3 w-3" />
-                          </Button>
-                          <span className="w-8 text-center text-sm font-medium" data-testid={`quantity-${item.productId}`}>
-                            {item.quantity}
-                          </span>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => updateQuantity(item.productId, 1)}
-                            data-testid={`button-increase-${item.productId}`}
-                          >
-                            <Plus className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => removeFromCart(item.productId)}
-                            data-testid={`button-remove-${item.productId}`}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
+              {cart.map((item) => (
+                <div key={item.productId} className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-medium">{item.productName}</p>
+                    <p className="text-xs text-muted-foreground">{formatCurrency(item.unitPrice)}</p>
                   </div>
-                  <div className="border-t pt-4">
-                    <div className="flex justify-between text-lg font-bold">
-                      <span>Total</span>
-                      <span data-testid="text-total-amount">${totalAmount.toFixed(2)}</span>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setCart(cart.map((it) => it.productId === item.productId ? { ...it, quantity: Math.max(1, it.quantity - 1) } : it))}><Minus className="h-3 w-3" /></Button>
+                    <span className="w-8 text-center">{item.quantity}</span>
+                    <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => item.quantity < item.maxStock && setCart(cart.map((it) => it.productId === item.productId ? { ...it, quantity: it.quantity + 1 } : it))}><Plus className="h-3 w-3" /></Button>
+                    <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setCart(cart.filter((it) => it.productId !== item.productId))}><Trash2 className="h-3 w-3" /></Button>
                   </div>
-                </>
-              ) : (
-                <div className="py-8 text-center">
-                  <ShoppingCart className="mx-auto h-12 w-12 text-muted-foreground" />
-                  <p className="mt-2 text-sm text-muted-foreground">No items in cart</p>
                 </div>
-              )}
-
+              ))}
+              {cart.length === 0 && <div className="py-8 text-center"><ShoppingCart className="mx-auto h-12 w-12 text-muted-foreground" /><p className="mt-2 text-sm text-muted-foreground">Carrinho vazio</p></div>}
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="customerName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Customer Name</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="John Doe"
-                            {...field}
-                            data-testid="input-customer-name"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="customerPhone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Phone Number</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="+1 (555) 000-0000"
-                            {...field}
-                            data-testid="input-customer-phone"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="customerAddress"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Delivery Address</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="123 Main St, City, State"
-                            {...field}
-                            data-testid="input-customer-address"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={createOrderMutation.isPending || cart.length === 0}
-                    data-testid="button-create-order"
-                  >
-                    Create Order
-                  </Button>
+                <form onSubmit={form.handleSubmit((data) => createOrderMutation.mutate({ ...data, discountAmount, items: cart.map(({ maxStock, ...rest }) => rest) }))} className="space-y-4">
+                  <FormField control={form.control} name="discountAmount" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center gap-2"><Percent className="h-4 w-4" />Desconto no pedido</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.01" value={field.value || 0} onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : 0)} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <div className="rounded-md border p-3 text-sm space-y-2">
+                    <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
+                    <div className="flex justify-between"><span>Desconto</span><span>- {formatCurrency(discountAmount)}</span></div>
+                    <div className="flex justify-between font-bold border-t pt-2"><span>Total</span><span>{formatCurrency(totalAmount)}</span></div>
+                  </div>
+                  <FormField control={form.control} name="customerName" render={({ field }) => <FormItem><FormLabel>Nome do cliente</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>} />
+                  <FormField control={form.control} name="customerPhone" render={({ field }) => <FormItem><FormLabel>Telefone</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>} />
+                  <FormField control={form.control} name="customerAddress" render={({ field }) => <FormItem><FormLabel>Endereço de entrega</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>} />
+                  <Button type="submit" className="w-full" disabled={createOrderMutation.isPending || cart.length === 0}>Finalizar pedido</Button>
                 </form>
               </Form>
             </CardContent>
