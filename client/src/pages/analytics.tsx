@@ -17,7 +17,7 @@ export default function AnalyticsPage() {
   const { data: analytics, isLoading } = useQuery<Analytics>({ queryKey: ["/api/analytics"] });
 
   const monthlyData = {
-    labels: analytics?.monthlyRevenueTrend.map((i) => format(new Date(i.month), "MMM/yy", { locale: ptBR })) || [],
+    labels: analytics?.monthlyRevenueTrend.map((i) => format(new Date(i.month), "MMM/yy")) || [],
     datasets: [
       { label: "Faturamento", data: analytics?.monthlyRevenueTrend.map((i) => i.revenue) || [], borderColor: "rgb(59,130,246)", backgroundColor: "rgba(59,130,246,.15)", fill: true },
       { label: "Pedidos", data: analytics?.monthlyRevenueTrend.map((i) => i.orders) || [], borderColor: "rgb(34,197,94)", backgroundColor: "rgba(34,197,94,.15)", fill: true },
