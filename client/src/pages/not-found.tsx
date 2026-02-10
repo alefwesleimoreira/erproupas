@@ -8,12 +8,9 @@ export default function NotFound() {
         <CardContent className="pt-6">
           <div className="flex mb-4 gap-2">
             <AlertCircle className="h-8 w-8 text-red-500" />
-            <h1 className="text-2xl font-bold text-gray-900">404 Page Not Found</h1>
+            <h1 className="text-2xl font-bold text-gray-900">404 - Página não encontrada</h1>
           </div>
-
-          <p className="mt-4 text-sm text-gray-600">
-            Did you forget to add the page to the router?
-          </p>
+          <p className="mt-4 text-sm text-gray-600">A rota acessada não existe no sistema.</p>
         </CardContent>
       </Card>
     </div>

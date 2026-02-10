@@ -1,16 +1,20 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertProductSchema, insertOrderSchema } from "@shared/schema";
+import { insertProductSchema, insertOrderSchema, orderStatuses } from "@shared/schema";
 import { z } from "zod";
 
+const updateStatusSchema = z.object({
+  status: z.enum(orderStatuses),
+});
+
 export async function registerRoutes(app: Express): Promise<Server> {
-  app.get("/api/products", async (req, res) => {
+  app.get("/api/products", async (_req, res) => {
     try {
       const products = await storage.getProducts();
       res.json(products);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch products" });
+    } catch {
+      res.status(500).json({ error: "Falha ao buscar produtos" });
     }
   });
 
@@ -18,11 +22,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const product = await storage.getProduct(req.params.id);
       if (!product) {
-        return res.status(404).json({ error: "Product not found" });
+        return res.status(404).json({ error: "Produto não encontrado" });
       }
       res.json(product);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch product" });
+    } catch {
+      res.status(500).json({ error: "Falha ao buscar produto" });
     }
   });
 
@@ -33,9 +37,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(product);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid product data", details: error.errors });
+        return res.status(400).json({ error: "Dados de produto inválidos", details: error.errors });
       }
-      res.status(500).json({ error: "Failed to create product" });
+      res.status(500).json({ error: "Falha ao criar produto" });
     }
   });
 
@@ -44,14 +48,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = insertProductSchema.parse(req.body);
       const product = await storage.updateProduct(req.params.id, validatedData);
       if (!product) {
-        return res.status(404).json({ error: "Product not found" });
+        return res.status(404).json({ error: "Produto não encontrado" });
       }
       res.json(product);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid product data", details: error.errors });
+        return res.status(400).json({ error: "Dados de produto inválidos", details: error.errors });
       }
-      res.status(500).json({ error: "Failed to update product" });
+      res.status(500).json({ error: "Falha ao atualizar produto" });
     }
   });
 
@@ -59,29 +63,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const deleted = await storage.deleteProduct(req.params.id);
       if (!deleted) {
-        return res.status(404).json({ error: "Product not found" });
+        return res.status(404).json({ error: "Produto não encontrado" });
       }
       res.status(204).send();
-    } catch (error) {
-      res.status(500).json({ error: "Failed to delete product" });
+    } catch {
+      res.status(500).json({ error: "Falha ao remover produto" });
     }
   });
 
-  app.get("/api/orders", async (req, res) => {
+  app.get("/api/orders", async (_req, res) => {
     try {
       const orders = await storage.getOrders();
       res.json(orders);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch orders" });
+    } catch {
+      res.status(500).json({ error: "Falha ao buscar pedidos" });
     }
   });
 
-  app.get("/api/orders/recent", async (req, res) => {
+  app.get("/api/orders/recent", async (_req, res) => {
     try {
       const orders = await storage.getRecentOrders(10);
       res.json(orders);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch recent orders" });
+    } catch {
+      res.status(500).json({ error: "Falha ao buscar pedidos recentes" });
     }
   });
 
@@ -89,11 +93,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const order = await storage.getOrder(req.params.id);
       if (!order) {
-        return res.status(404).json({ error: "Order not found" });
+        return res.status(404).json({ error: "Pedido não encontrado" });
       }
       res.json(order);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch order" });
+    } catch {
+      res.status(500).json({ error: "Falha ao buscar pedido" });
     }
   });
 
@@ -104,43 +108,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(order);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid order data", details: error.errors });
+        return res.status(400).json({ error: "Dados de pedido inválidos", details: error.errors });
       }
-      res.status(500).json({ error: "Failed to create order" });
+      if (error instanceof Error) {
+        return res.status(400).json({ error: error.message });
+      }
+      res.status(500).json({ error: "Falha ao criar pedido" });
     }
   });
 
   app.put("/api/orders/:id/status", async (req, res) => {
     try {
-      const { status } = req.body;
-      if (!status) {
-        return res.status(400).json({ error: "Status is required" });
-      }
+      const { status } = updateStatusSchema.parse(req.body);
       const order = await storage.updateOrderStatus(req.params.id, status);
       if (!order) {
-        return res.status(404).json({ error: "Order not found" });
+        return res.status(404).json({ error: "Pedido não encontrado" });
       }
       res.json(order);
     } catch (error) {
-      res.status(500).json({ error: "Failed to update order status" });
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Status inválido", details: error.errors });
+      }
+      if (error instanceof Error) {
+        return res.status(400).json({ error: error.message });
+      }
+      res.status(500).json({ error: "Falha ao atualizar status do pedido" });
     }
   });
 
-  app.get("/api/customers", async (req, res) => {
+  app.get("/api/customers", async (_req, res) => {
     try {
       const customers = await storage.getCustomers();
       res.json(customers);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch customers" });
+    } catch {
+      res.status(500).json({ error: "Falha ao buscar clientes" });
     }
   });
 
-  app.get("/api/analytics", async (req, res) => {
+  app.get("/api/analytics", async (_req, res) => {
     try {
       const analytics = await storage.getAnalytics();
       res.json(analytics);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch analytics" });
+    } catch {
+      res.status(500).json({ error: "Falha ao buscar métricas" });
     }
   });
 
