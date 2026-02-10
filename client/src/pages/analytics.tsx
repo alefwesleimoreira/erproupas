@@ -1,307 +1,102 @@
 import { useQuery } from "@tanstack/react-query";
-import { TrendingUp, Package, DollarSign } from "lucide-react";
+import { TrendingUp, Package, DollarSign, Users, AlertTriangle, Repeat, Scissors } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { Line, Bar, Doughnut } from "react-chartjs-2";
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  ArcElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler,
-} from "chart.js";
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend, Filler } from "chart.js";
 import type { Analytics } from "@shared/schema";
+import { statusConfig } from "@shared/schema";
 import { format } from "date-fns";
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  ArcElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler
-);
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend, Filler);
+const formatCurrency = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
 export default function AnalyticsPage() {
-  const { data: analytics, isLoading } = useQuery<Analytics>({
-    queryKey: ["/api/analytics"],
-  });
+  const { data: analytics, isLoading } = useQuery<Analytics>({ queryKey: ["/api/analytics"] });
 
-  const salesTrendData = {
-    labels: analytics?.salesTrend.map((item) => format(new Date(item.date), "MMM dd")) || [],
+  const monthlyData = {
+    labels: analytics?.monthlyRevenueTrend.map((i) => format(new Date(i.month), "MMM/yy")) || [],
     datasets: [
-      {
-        label: "Revenue",
-        data: analytics?.salesTrend.map((item) => item.revenue) || [],
-        borderColor: "rgb(33, 150, 243)",
-        backgroundColor: "rgba(33, 150, 243, 0.1)",
-        fill: true,
-        tension: 0.4,
-      },
-      {
-        label: "Orders",
-        data: analytics?.salesTrend.map((item) => item.orders) || [],
-        borderColor: "rgb(76, 175, 80)",
-        backgroundColor: "rgba(76, 175, 80, 0.1)",
-        fill: true,
-        tension: 0.4,
-      },
-    ],
-  };
-
-  const topProductsData = {
-    labels: analytics?.topProducts.slice(0, 5).map((item) => item.productName) || [],
-    datasets: [
-      {
-        label: "Units Sold",
-        data: analytics?.topProducts.slice(0, 5).map((item) => item.totalSold) || [],
-        backgroundColor: "rgba(33, 150, 243, 0.8)",
-      },
+      { label: "Faturamento", data: analytics?.monthlyRevenueTrend.map((i) => i.revenue) || [], borderColor: "rgb(59,130,246)", backgroundColor: "rgba(59,130,246,.15)", fill: true },
+      { label: "Pedidos", data: analytics?.monthlyRevenueTrend.map((i) => i.orders) || [], borderColor: "rgb(34,197,94)", backgroundColor: "rgba(34,197,94,.15)", fill: true },
     ],
   };
 
   const categoryData = {
-    labels: analytics?.categoryDistribution.map((item) => item.category) || [],
-    datasets: [
-      {
-        label: "Revenue by Category",
-        data: analytics?.categoryDistribution.map((item) => item.revenue) || [],
-        backgroundColor: [
-          "rgba(33, 150, 243, 0.8)",
-          "rgba(76, 175, 80, 0.8)",
-          "rgba(255, 152, 0, 0.8)",
-          "rgba(156, 39, 176, 0.8)",
-          "rgba(244, 67, 54, 0.8)",
-          "rgba(0, 188, 212, 0.8)",
-          "rgba(255, 235, 59, 0.8)",
-          "rgba(121, 85, 72, 0.8)",
-        ],
-      },
-    ],
+    labels: analytics?.categoryDistribution.map((i) => i.category) || [],
+    datasets: [{ data: analytics?.categoryDistribution.map((i) => i.revenue) || [] }],
   };
 
-  const lineOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        position: "top" as const,
-      },
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-      },
-    },
+  const statusData = {
+    labels: analytics?.revenueByStatus.map((i) => statusConfig[i.status].label) || [],
+    datasets: [{ label: "Pedidos", data: analytics?.revenueByStatus.map((i) => i.orders) || [], backgroundColor: "rgba(99,102,241,.8)" }],
   };
 
-  const barOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        display: false,
-      },
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-      },
-    },
-  };
-
-  const doughnutOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        position: "right" as const,
-      },
-    },
+  const topProductsData = {
+    labels: analytics?.topProducts.slice(0, 5).map((i) => i.productName) || [],
+    datasets: [{ label: "Qtd. vendida", data: analytics?.topProducts.slice(0, 5).map((i) => i.totalSold) || [], backgroundColor: "rgba(14,165,233,.8)" }],
   };
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-foreground" data-testid="text-analytics-title">Analytics</h1>
-        <p className="text-muted-foreground">Insights and reports for your restaurant</p>
+        <h1 className="text-3xl font-bold text-foreground">BI e Relatórios</h1>
+        <p className="text-muted-foreground">Indicadores fundamentais para decisão comercial e operacional</p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
-        {isLoading ? (
-          <>
-            {[...Array(3)].map((_, i) => (
-              <Card key={i}>
-                <CardHeader>
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-8 w-32" />
-                </CardHeader>
-              </Card>
-            ))}
-          </>
-        ) : (
-          <>
-            <Card className="hover-elevate">
-              <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total Revenue</CardTitle>
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100 dark:bg-green-950">
-                  <DollarSign className="h-5 w-5 text-green-600" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-foreground" data-testid="stat-analytics-revenue">
-                  ${analytics?.totalRevenue.toFixed(2) || "0.00"}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">All time revenue</p>
-              </CardContent>
-            </Card>
-            <Card className="hover-elevate">
-              <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total Orders</CardTitle>
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-950">
-                  <TrendingUp className="h-5 w-5 text-blue-600" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-foreground" data-testid="stat-analytics-orders">
-                  {analytics?.totalOrders || 0}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">All time orders</p>
-              </CardContent>
-            </Card>
-            <Card className="hover-elevate">
-              <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Average Order</CardTitle>
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-100 dark:bg-orange-950">
-                  <Package className="h-5 w-5 text-orange-600" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-foreground" data-testid="stat-analytics-average">
-                  ${analytics && analytics.totalOrders > 0
-                    ? (analytics.totalRevenue / analytics.totalOrders).toFixed(2)
-                    : "0.00"}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">Per order value</p>
-              </CardContent>
-            </Card>
-          </>
-        )}
+      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-8">
+        {isLoading ? [...Array(8)].map((_, i) => <Card key={i}><CardHeader><Skeleton className="h-4 w-24" /></CardHeader></Card>) : <>
+          <Card><CardHeader className="flex flex-row justify-between"><CardTitle className="text-sm">Faturamento líquido</CardTitle><DollarSign className="h-4 w-4" /></CardHeader><CardContent><p className="text-xl font-bold">{formatCurrency(analytics?.totalRevenue || 0)}</p></CardContent></Card>
+          <Card><CardHeader className="flex flex-row justify-between"><CardTitle className="text-sm">Faturamento bruto</CardTitle><TrendingUp className="h-4 w-4" /></CardHeader><CardContent><p className="text-xl font-bold">{formatCurrency(analytics?.grossRevenue || 0)}</p></CardContent></Card>
+          <Card><CardHeader className="flex flex-row justify-between"><CardTitle className="text-sm">Descontos</CardTitle><Scissors className="h-4 w-4" /></CardHeader><CardContent><p className="text-xl font-bold">{formatCurrency(analytics?.totalDiscount || 0)}</p></CardContent></Card>
+          <Card><CardHeader className="flex flex-row justify-between"><CardTitle className="text-sm">Ticket Médio</CardTitle><TrendingUp className="h-4 w-4" /></CardHeader><CardContent><p className="text-xl font-bold">{formatCurrency(analytics?.averageTicket || 0)}</p></CardContent></Card>
+          <Card><CardHeader className="flex flex-row justify-between"><CardTitle className="text-sm">Clientes</CardTitle><Users className="h-4 w-4" /></CardHeader><CardContent><p className="text-xl font-bold">{analytics?.totalCustomers || 0}</p></CardContent></Card>
+          <Card><CardHeader className="flex flex-row justify-between"><CardTitle className="text-sm">Recorrência</CardTitle><Repeat className="h-4 w-4" /></CardHeader><CardContent><p className="text-xl font-bold">{(analytics?.repeatRate || 0).toFixed(1)}%</p></CardContent></Card>
+          <Card><CardHeader className="flex flex-row justify-between"><CardTitle className="text-sm">Pedidos em aberto</CardTitle><Package className="h-4 w-4" /></CardHeader><CardContent><p className="text-xl font-bold">{analytics?.pendingOrders || 0}</p></CardContent></Card>
+          <Card><CardHeader className="flex flex-row justify-between"><CardTitle className="text-sm">Cancelamento</CardTitle><AlertTriangle className="h-4 w-4" /></CardHeader><CardContent><p className="text-xl font-bold">{(analytics?.cancellationRate || 0).toFixed(1)}%</p></CardContent></Card>
+        </>}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
+        <Card><CardHeader><CardTitle>Evolução Mensal</CardTitle><CardDescription>Faturamento e volume de pedidos (6 meses)</CardDescription></CardHeader><CardContent>{isLoading ? <Skeleton className="h-80 w-full" /> : <div className="h-80"><Line data={monthlyData} options={{ responsive: true, maintainAspectRatio: false }} /></div>}</CardContent></Card>
+        <Card><CardHeader><CardTitle>Pedidos por Status</CardTitle><CardDescription>Distribuição operacional dos pedidos</CardDescription></CardHeader><CardContent>{isLoading ? <Skeleton className="h-80 w-full" /> : <div className="h-80"><Bar data={statusData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }} /></div>}</CardContent></Card>
+        <Card><CardHeader><CardTitle>Faturamento por Categoria</CardTitle><CardDescription>Mix de receita por departamento</CardDescription></CardHeader><CardContent>{isLoading ? <Skeleton className="h-80 w-full" /> : <div className="h-80"><Doughnut data={categoryData} options={{ responsive: true, maintainAspectRatio: false }} /></div>}</CardContent></Card>
+        <Card><CardHeader><CardTitle>Top Produtos</CardTitle><CardDescription>Itens mais vendidos (quantidade)</CardDescription></CardHeader><CardContent>{isLoading ? <Skeleton className="h-80 w-full" /> : <div className="h-80"><Bar data={topProductsData} options={{ responsive: true, maintainAspectRatio: false, indexAxis: "y" as const, plugins: { legend: { display: false } } }} /></div>}</CardContent></Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
         <Card>
-          <CardHeader>
-            <CardTitle>Sales Trend</CardTitle>
-            <CardDescription>Revenue and orders over the last 7 days</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-80 w-full" />
-            ) : (
-              <div className="h-80">
-                <Line data={salesTrendData} options={lineOptions} />
+          <CardHeader><CardTitle>Curva ABC</CardTitle><CardDescription>Classificação de produtos por receita acumulada</CardDescription></CardHeader>
+          <CardContent className="space-y-2">
+            {isLoading ? <Skeleton className="h-40 w-full" /> : analytics?.abcCurve.slice(0, 8).map((item) => (
+              <div key={item.productId} className="flex justify-between text-sm">
+                <span className="truncate max-w-[160px]">{item.productName}</span>
+                <Badge variant={item.classType === "A" ? "default" : item.classType === "B" ? "secondary" : "outline"}>{item.classType}</Badge>
               </div>
-            )}
+            ))}
           </CardContent>
         </Card>
-
         <Card>
-          <CardHeader>
-            <CardTitle>Top Products</CardTitle>
-            <CardDescription>Best selling items by units sold</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-80 w-full" />
-            ) : analytics?.topProducts && analytics.topProducts.length > 0 ? (
-              <div className="h-80">
-                <Bar data={topProductsData} options={barOptions} />
+          <CardHeader><CardTitle>Segmentação RFM</CardTitle><CardDescription>Recência, frequência e valor monetário</CardDescription></CardHeader>
+          <CardContent className="space-y-2">
+            {isLoading ? <Skeleton className="h-40 w-full" /> : analytics?.rfmSegments.map((segment) => (
+              <div key={segment.segment} className="flex justify-between text-sm">
+                <span>{segment.segment}</span>
+                <span>{segment.customers} clientes</span>
               </div>
-            ) : (
-              <div className="h-80 flex items-center justify-center">
-                <div className="text-center">
-                  <Package className="mx-auto h-12 w-12 text-muted-foreground" />
-                  <p className="mt-2 text-sm text-muted-foreground">No product sales yet</p>
-                </div>
-              </div>
-            )}
+            ))}
           </CardContent>
         </Card>
-
         <Card>
-          <CardHeader>
-            <CardTitle>Category Distribution</CardTitle>
-            <CardDescription>Revenue breakdown by category</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-80 w-full" />
-            ) : analytics?.categoryDistribution && analytics.categoryDistribution.length > 0 ? (
-              <div className="h-80">
-                <Doughnut data={categoryData} options={doughnutOptions} />
+          <CardHeader><CardTitle>Reabastecimento sugerido</CardTitle><CardDescription>Produtos abaixo do ponto de reposição</CardDescription></CardHeader>
+          <CardContent className="space-y-2">
+            {isLoading ? <Skeleton className="h-40 w-full" /> : analytics?.reorderSuggestions.slice(0, 6).map((item) => (
+              <div key={item.productId} className="rounded border p-2 text-sm">
+                <p className="font-medium truncate">{item.productName}</p>
+                <p>Estoque: {item.currentStock} | Repor: {item.suggestedOrderQty}</p>
               </div>
-            ) : (
-              <div className="h-80 flex items-center justify-center">
-                <div className="text-center">
-                  <TrendingUp className="mx-auto h-12 w-12 text-muted-foreground" />
-                  <p className="mt-2 text-sm text-muted-foreground">No category data yet</p>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Top Products by Revenue</CardTitle>
-            <CardDescription>Highest earning items</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="space-y-4">
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className="flex items-center justify-between">
-                    <Skeleton className="h-4 w-32" />
-                    <Skeleton className="h-4 w-20" />
-                  </div>
-                ))}
-              </div>
-            ) : analytics?.topProducts && analytics.topProducts.length > 0 ? (
-              <div className="space-y-4">
-                {analytics.topProducts.slice(0, 5).map((product, index) => (
-                  <div key={product.productId} className="flex items-center justify-between" data-testid={`top-product-${index}`}>
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary font-semibold text-sm">
-                        {index + 1}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{product.productName}</p>
-                        <p className="text-xs text-muted-foreground">{product.totalSold} units sold</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-semibold text-foreground">${product.revenue.toFixed(2)}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="py-16 text-center">
-                <Package className="mx-auto h-12 w-12 text-muted-foreground" />
-                <p className="mt-2 text-sm text-muted-foreground">No product data yet</p>
-              </div>
-            )}
+            ))}
           </CardContent>
         </Card>
       </div>
