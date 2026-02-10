@@ -105,6 +105,7 @@ export default function NewOrder() {
           <Card>
             <CardHeader>
               <CardTitle>Resumo do Pedido</CardTitle>
+              <CardDescription>{cart.length} {cart.length === 1 ? "produto" : "produtos"}</CardDescription>
               <CardDescription>{cart.length} {cart.length === 1 ? "item" : "itens"}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
